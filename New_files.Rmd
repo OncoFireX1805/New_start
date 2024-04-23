@@ -1,0 +1,37 @@
+---
+title: "New_start"
+author: "Parth"
+date: "2024-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We have linked the R commander file to the git hub and named it New_start folder 
+Now make directory 
+Write everything in R scripts and use chunks
+```{r}
+mkdir -p./{docs,data,results/{proc_data,figures,reports},src}
+
+```
+```{r}
+mkdir -p ./{docs,data,results/{proc_data,figures,reports},src}
+```
+
+
+```{r}
+dir.create("docs")
+dir.create("data")
+dir.create("results")
+dir.create("results/proc_data")
+dir.create("results/figures")
+dir.create("results/reports")
+dir.create("src")
+
+```
+
+
+
+
