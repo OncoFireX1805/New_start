@@ -75,5 +75,5 @@ sampleinfo <- data.frame(
     condition = conditions,
     row.names = sample_names
 )
-
+sd
 ```
