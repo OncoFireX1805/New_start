@@ -1,0 +1,79 @@
+---
+title: 'MRes Project: Breast cancer bone dormancy'
+author: "Parth"
+date: "2024-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+We have recived, TSV datafile from supercomputer and now we are going to perform 
+First install all the required packages to run 
+
+```{r cars}
+install.packages("tidyverse")
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+
+```{r cars}
+library(DESeq2)
+```
+
+```{r}
+library(tximport)
+library(DESeq2)
+library(readr)
+
+```
+
+list all the files, salmon function not required here already have in tsv 
+```{r}
+countData<-read_tsv("C:/Users/parth/OneDrive/Desktop/New_start/rsem.merged.gene_counts.tsv")
+View(countData
+     )
+
+    
+```
+
+We first create a matrix out of the fataset 
+```{r}
+# Assuming the first column contains gene IDs
+geneIDs <- countData[[1]]
+counts <- countData[,-1]  # Remove the gene ID column
+
+# Convert to a matrix
+countMatrix <- as.matrix(counts)
+rownames(countMatrix) <- geneIDs
+colnames(countMatrix)
+
+
+```
+
+A metadata dataframe is prepared 
+```{r}
+dim(countData)
+```
+
+
+```{r}
+sample_names <- colnames(countMatrix)
+num_samples <- length(sample_names)
+conditions <- factor(c("M10", "M11", "M12", "M3", "M5"))
+
+sampleinfo <- data.frame(
+    condition = conditions,
+    row.names = sample_names
+)
+
+```
