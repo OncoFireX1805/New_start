@@ -121,7 +121,7 @@ Now annotations to reveal gene expressions, this annotates gene expression to hu
 ```{r}
 BiocManager::install("org.Hs.eg.db")
 # For Human
-BiocManager::install("org.Hs.eg.db")
+
 ```
 
 Now checkout the columns 
@@ -135,9 +135,8 @@ keys(org.Hs.eg.db, keytype="ENSEMBL")[1:10]
 ```
 Analysing gene function and alloting them gene name and symbols
 ```{r}
-select(org.Hs.eg.db,keys = "ENSG00000000003",keytype = "ENSEMBL",columns = "GENENAME","SYMBOL")
+AnnotationDbi::select(org.Hs.eg.db, keys="ENSG00000000003", keytype="ENSEMBL", columns=c("SYMBOL", "GENENAME"))
 
-AnnotationDbi::select(org.Hs.eg.db, keys="ENSG00000000003",keytype = "ENSEMBL",columns=c("SYMBOL","GENENAME"))
 ```
 Now we annotate the whole bunch of data 
 ```{r}
@@ -160,7 +159,7 @@ head(anno)
 ```
 Now joining the dataframes together with gene names and database. This joins the ENSEMBL datasheet with gene names and gene symbols 
 ```{r}
-results_annotated<-results(de_dormancy,tidy = TRUE)%>%inner_join(anno,by=c("row"="ENSEMBL"))
+results_annotated<-results(de_dormancy,tidy = TRUE)%>%left_join(anno,by=c("row"="ENSEMBL"))
 head(results_annotated)
 write.csv(results_annotated,file = "de_dormancy-MvsD.csv",row.names = FALSE)
 saveRDS(results_annotated,file = "dormancy_MvsD.rds")
@@ -170,7 +169,7 @@ Normalising the datasets
 dds<-estimateSizeFactors(dds)
 countMatrix <-counts(dds, normalized=TRUE)
 View(countMatrix)
-write.csv(countMatrix,file="normalised counts.csv")
+write.csv(countMatrix,file= "normalised counts.csv")
 
 ```
 
@@ -222,20 +221,18 @@ pheatmap(assay(vsd)[top_genes,])
 
 ```
 For some reason the annotation is not working and its giving me an error about incorrect dimensions 
+Annotation is working apparently ignore annotation column 
 ```{r}
 sampleInfo <- colData(dds)[, c("condition")]
 print(sampleInfo)
-print(top)
 
+gene_labels <- dplyr::slice(results_DM, 1:N) %>% pull(SYMBOL)
 pheatmap(assay(vsd)[top_genes,],
-         annotation_col = sampleInfo,
+           labels_row = gene_labels,,
          scale="row")
 ```
 
 
-```{r}
-heatmap_plot
-```
 
 Now do pathway analysis 
 ```{r}
@@ -279,6 +276,12 @@ BiocManager::install("clusterProfiler")
 
 
 ```{r}
+print(head(results_DM$row
+           ))
+```
+
+
+```{r}
 library(clusterProfiler)
 universe <- results_DM %>% pull(row)
 sigGenes <- results_DM %>% 
@@ -311,7 +314,3 @@ gse_GO  <- gseGO(geneList = geneList,
         OrgDb = org.Hs.eg.db,
         ont = "BP",keyType = "ENSEMBL")
 ```
-
-```{r}
-
-
