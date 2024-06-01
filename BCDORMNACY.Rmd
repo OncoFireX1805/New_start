@@ -301,16 +301,74 @@ enrich_go <- enrichGO(
 
 
 Enrichment analysis 
+Try this it works somehow
+```{r}
+ library(data.table)
+ anno <- fread("C:/Users/parth/OneDrive/Desktop/New_start/de_dormancy-MvsD.csv")
+ class(anno) <- "data.frame"
+ library(clusterProfiler)
+ gene <- sample(anno$row, 100)
+ TERM2GENE <- anno[, c("baseMean","SYMBOL")]
+ TERM2NAME <- anno[, c("baseMean", "SYMBOL")]
+ ego <- enricher(gene = gene, TERM2GENE = TERM2GENE,  TERM2NAME = TERM2NAME)
+ 
+ 
+ head(ego)
+  
+```
+
+
 
 ```{r}
-ranked_genes <- results_DM %>% 
-  arrange(desc(stat)) %>% 
-  filter(!is.na(stat))
-  
-geneList <- pull(ranked_genes, stat)
-names(geneList) <- pull(ranked_genes, row)
-  
-gse_GO  <- gseGO(geneList = geneList,
-        OrgDb = org.Hs.eg.db,
-        ont = "BP",keyType = "ENSEMBL")
+head(anno)
 ```
+```{r}
+library(DESeq2)
+library(pheatmap)
+library(org.Mm.eg.db)
+library(DOSE)
+
+library(clusterProfiler)
+install.packages("ensembl")
+
+library(tidyverse)
+library(dplyr)
+```
+```{r}
+all(colnames(DatasheetB)%in%rownames(coldata))
+all(colnames(DatasheetB)==rownames(coldata))
+
+```
+```{r}
+rold<-rlog(dds,blind = TRUE)
+plotPCA(rold, intgroup="condition")
+```
+
+```{r}
+res<-results(dds)
+all_genes <- as.character(rownames(res))
+signif_res <- res[res$padj < 0.05 & !is.na(res$padj), ]
+signif_genes <- as.character(rownames(signif_res))
+```
+
+```{r}
+library(org.Hs.eg.db)
+
+ego <- enrichGO(gene = signif_genes,
+ universe = all_genes,
+ keyType = "ENTREZID",
+ OrgDb = org.Hs.eg.db,
+ ont = "BP",
+ pAdjustMethod = "BH",
+ qvalueCutoff = 0.05,
+ readable = TRUE)
+```
+
+```{r}
+cluster_summary <- data.frame(ego)
+```
+
+```{r}
+dotplot(ego, showCategory=50)
+```
+
