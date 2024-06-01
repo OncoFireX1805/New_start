@@ -1,0 +1,23 @@
+---
+title: "Mres file"
+author: "Parth"
+date: "2024-05-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+
+
+```
+```{r}
+cts<-read.csv("C:/Users/parth/OneDrive/Desktop/New_start/rsem.merged.gene_counts.tsv",sep = '\t', header = TRUE)
+```
+
