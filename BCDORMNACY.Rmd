@@ -1,5 +1,5 @@
 ---
-title: "Mres file"
+title: "x"
 author: "Parth"
 date: "2024-05-31"
 output: html_document
@@ -14,10 +14,108 @@ install.packages("tidyverse")
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
-
-
 ```
 ```{r}
-cts<-read.csv("C:/Users/parth/OneDrive/Desktop/New_start/rsem.merged.gene_counts.tsv",sep = '\t', header = TRUE)
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
 ```
+
+
+```{r}
+install.packages("BiocManager")
+BiocManager::install("DESeq2")
+library(DESeq2)
+```
+
+
+
+```{r}
+library(readr)
+library(readr)
+ setwd("C:/Users/parth/OneDrive/Desktop/repet_1")
+# Read CSV file with the first column as row names
+DatasheetB <- read.csv("C:/Users/parth/OneDrive/Desktop/New_start/DatasheetB.csv", header = TRUE, row.names = 1, sep = ",")
+
+# View the data
+```
+
+
+```{r}
+DatasheetB
+```
+
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+```
+
+
+```{r}
+BiocManager::install("pasilla")
+```
+Exclude text columns before you proceed save them seperately
+
+```{r}
+condition<-factor(c("D","M","D","M","D"))
+```
+Mention the conditon and equate column anems to row names 
+Sort the data in metastatic and dormant models
+
+```{r}
+coldata<-data.frame(row.names=colnames(DatasheetB),condition)
+```
+
+```{r}
+coldata
+```
+
+```{r}
+dds<-DESeqDataSetFromMatrix(countData = round(DatasheetB),colData = coldata,design = ~condition)
+```
+
+
+```{r}
+dds<-DESeq(dds)
+```
+pull out individual values
+```{r}
+dds$condition
+dds$sizeFactor
+
+```
+
+```{r}
+colData(dds)
+design(dds)<-~condition
+```
+
+Now do the real analysis 
+```{r}
+de_dormancy<-DESeq(dds)
+```
+find the results 
+```{r}
+results(de_dormancy)
+```
+Tidy up the data now abd start using p value for getting significant difference and write a file about it to get everything sorted formats: excel or CSV (here csv)
+```{r}
+library(dplyr)
+dir.create("BCanalysis",showWarnings = FALSE)
+results(de_dormancy,tidy = TRUE)%>%
+  arrange(desc(padj<0.05))%>%
+  write_csv("dormancy_analysis.csv")
+read_csv("dormancy_analysis.csv")
+saveRDS(de_dormancy,file = "de_dormancy.rds")
+```
+
+
+Finally plot the data for the first time
+```{r}
+plotMA(de_dormancy)
+```
+Do github thing
+
 
