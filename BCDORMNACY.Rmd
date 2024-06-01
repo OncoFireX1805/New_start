@@ -116,6 +116,202 @@ Finally plot the data for the first time
 ```{r}
 plotMA(de_dormancy)
 ```
-Do github thing
+
+Now annotations to reveal gene expressions, this annotates gene expression to human genome  
+```{r}
+BiocManager::install("org.Hs.eg.db")
+# For Human
+BiocManager::install("org.Hs.eg.db")
+```
+
+Now checkout the columns 
+```{r}
+library(org.Hs.eg.db)
+columns(org.Hs.eg.db)
+
+```
+```{r}
+keys(org.Hs.eg.db, keytype="ENSEMBL")[1:10]
+```
+Analysing gene function and alloting them gene name and symbols
+```{r}
+select(org.Hs.eg.db,keys = "ENSG00000000003",keytype = "ENSEMBL",columns = "GENENAME","SYMBOL")
+
+AnnotationDbi::select(org.Hs.eg.db, keys="ENSG00000000003",keytype = "ENSEMBL",columns=c("SYMBOL","GENENAME"))
+```
+Now we annotate the whole bunch of data 
+```{r}
+anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("SYMBOL","GENENAME"),keytype = "ENSEMBL")
+View(anno)
+dim(anno)
+dim(dds)
+```
+The dimmensions of anno and dds dont match due to the duplications in the dataset 
+Now to remove duplicated information 
+
+```{r}
+a<-duplicated(dds)
+sum(a)
+```
+Now to remove the duplicated entries 
+```{r}
+anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("ENSEMBL","SYMBOL","GENENAME","ENTREZID"),keytype="ENSEMBL")%>%filter(!duplicated(ENSEMBL))
+head(anno)
+```
+Now joining the dataframes together with gene names and database. This joins the ENSEMBL datasheet with gene names and gene symbols 
+```{r}
+results_annotated<-results(de_dormancy,tidy = TRUE)%>%inner_join(anno,by=c("row"="ENSEMBL"))
+head(results_annotated)
+write.csv(results_annotated,file = "de_dormancy-MvsD.csv",row.names = FALSE)
+saveRDS(results_annotated,file = "dormancy_MvsD.rds")
+```
+Normalising the datasets
+```{r}
+dds<-estimateSizeFactors(dds)
+countMatrix <-counts(dds, normalized=TRUE)
+View(countMatrix)
+write.csv(countMatrix,file="normalised counts.csv")
+
+```
+
+To the final stage of heat mapp analysis and data analysis 
+
+```{r}
+library(DESeq2)
+results_DM<-readRDS("C:/Users/parth/OneDrive/Desktop/New_start/dormancy_MvsD.rds")
+head(results_DM)
+summary(results_DM)
+# Remove rows with any NA values
+clean_data <- results_DM[complete.cases(results_DM), ]
+
+```
+Just create ggplots 
+```{r}
+clean_data %>% 
+  mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 2) %>% 
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+```
+Create some volcano plots and see if you find some data
+```{r}
+N<-10
+View(clean_data)
+top_genes <- dplyr::slice(clean_data, 1:N) %>% pull(row)
+
+clean_data %>%
+  mutate(label = ifelse(row %in% top_genes, SYMBOL, "")) %>%
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), label = label)) +
+  geom_point(alpha = 0.4) +
+  geom_text(col = "blue")
+
+if(!require(ggrepel)) install.packages("ggrepel")
+
+clean_data %>% 
+  mutate(Label = ifelse(row %in% top_genes, SYMBOL, "")) %>%  
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), label=Label)) + geom_point(alpha=0.4) + geom_text_repel(col="blue")
+  
+  
+```
+
+now creating heatmaps
+```{r}
+install.packages("pheatmap")
+library(pheatmap)
+top_genes <- dplyr::slice(clean_data, 1:N) %>% pull(row)
+vsd<-vst(dds)
+pheatmap(assay(vsd)[top_genes,])
+
+```
+For some reason the annotation is not working and its giving me an error about incorrect dimensions 
+```{r}
+sampleInfo <- colData(dds)[, c("condition")]
+print(sampleInfo)
+print(top)
+
+pheatmap(assay(vsd)[top_genes,],
+         annotation_col = sampleInfo,
+         scale="row")
+```
+
+
+```{r}
+heatmap_plot
+```
+
+Now do pathway analysis 
+```{r}
+library(org.Hs.eg.db)
+pathway_genes <- AnnotationDbi::select(org.Hs.eg.db,
+                                       keys = "GO:0030198",
+                                       keytype = "GO",
+                                       columns="ENSEMBL") %>% pull(ENSEMBL)
+
+```
+
+
+```{r}
+library(dplyr)
+library(org.Hs.eg.db)
+go_table <- mutate(results_DM, 
+                   inPathway = row %in% pathway_genes,
+                   isDE = padj < 0.05 & abs(log2FoldChange) > 1)
+View(go_table)
+```
+
+```{r}
+table(go_table$inPathway, go_table$isDE)
+```
+Performing Chisquare test on the data 
+```{r}
+chisq.test(table(go_table$inPathway, go_table$isDE))
+```
+The test resulted in very small negative p value hence the alternative hypothesis stating there is high change in gene expression in dormant and metastatic cells is seen 
+
+Clusterprofiler analysis 
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("clusterProfiler")
+
+
+
+```
+
+
+```{r}
+library(clusterProfiler)
+universe <- results_DM %>% pull(row)
+sigGenes <- results_DM %>% 
+  filter(padj < 0.05, !is.na(row)) %>% pull(row)
+
+enrich_go <- enrichGO(
+  gene= sigGenes,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENSEMBL",
+  ont = "BP",
+  universe = universe,
+  qvalueCutoff = 0.05,
+  readable=TRUE
+)
+
+```
+
+
+Enrichment analysis 
+
+```{r}
+ranked_genes <- results_DM %>% 
+  arrange(desc(stat)) %>% 
+  filter(!is.na(stat))
+  
+geneList <- pull(ranked_genes, stat)
+names(geneList) <- pull(ranked_genes, row)
+  
+gse_GO  <- gseGO(geneList = geneList,
+        OrgDb = org.Hs.eg.db,
+        ont = "BP",keyType = "ENSEMBL")
+```
+
+```{r}
 
 
