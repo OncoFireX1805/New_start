@@ -1,0 +1,4 @@
+"Sort","Visible","Group","Column","Description","ID","Scale"
+"||",NA,"FastQC (trimmed)","Samples","Number of samples where this sequence is overrepresented","samples","None"
+"||",NA,"FastQC (trimmed)","Occurrences","Total number of occurrences of the sequence (among the samples where the sequence is overrepresented)","total_count","None"
+"||",NA,"FastQC (trimmed)","% of all reads","Total number of occurrences as the percentage of all reads (among samples where the sequence is overrepresented)","total_percent","None"
