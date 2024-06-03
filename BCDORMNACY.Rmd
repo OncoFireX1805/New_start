@@ -31,6 +31,7 @@ library(DESeq2)
 
 
 
+
 ```{r}
 library(readr)
 library(readr)
@@ -43,7 +44,12 @@ DatasheetB <- read.csv("C:/Users/parth/OneDrive/Desktop/New_start/DatasheetB.csv
 
 
 ```{r}
+
+
 DatasheetB
+
+
+
 ```
 
 
@@ -59,7 +65,7 @@ BiocManager::install("pasilla")
 Exclude text columns before you proceed save them seperately
 
 ```{r}
-condition<-factor(c("D","M","D","M","D"))
+condition<-factor(c("D","D","M","M","D"))
 ```
 Mention the conditon and equate column anems to row names 
 Sort the data in metastatic and dormant models
@@ -103,9 +109,11 @@ results(de_dormancy)
 Tidy up the data now abd start using p value for getting significant difference and write a file about it to get everything sorted formats: excel or CSV (here csv)
 ```{r}
 library(dplyr)
+library(tidyverse)
+library(DESeq2)
 dir.create("BCanalysis",showWarnings = FALSE)
 results(de_dormancy,tidy = TRUE)%>%
-  arrange(desc(padj<0.05))%>%
+  arrange(desc(padj>0.05))%>%
   write_csv("dormancy_analysis.csv")
 read_csv("dormancy_analysis.csv")
 saveRDS(de_dormancy,file = "de_dormancy.rds")
@@ -114,8 +122,41 @@ saveRDS(de_dormancy,file = "de_dormancy.rds")
 
 Finally plot the data for the first time
 ```{r}
+# Load the DESeq2 library
+library(DESeq2)
+
+# Assuming de_dormancy is your DESeqDataSet object and you've already run DESeq
+# de_dormancy <- DESeq(de_dormancy)
+
+# Get the results
+res <- results(de_dormancy)
+
+# Filter for adjusted p-values less than 0.05, and ensure there are no NA values
+filtered_res <- res[!is.na(res$padj) & res$padj < 0.05, ]
+
+# Check if the filtered results are not empty
+if (nrow(filtered_res) > 0) {
+    # Plot the MA plot using the filtered results
+    plotMA(filtered_res, main="MA plot with adjusted p-value < 0.05")
+    
+    # Optional: Highlight significant points
+    plotMA(res, ylim=c(-2, 2))
+    with(subset(res, !is.na(padj) & padj < 0.05), points(baseMean, log2FoldChange, col="red", cex=1.5))
+} else {
+    cat("No genes passed the adjusted p-value threshold of 0.05\n")
+}
+
+
+
+
+
+```
+```{r}
 plotMA(de_dormancy)
 ```
+
+
+
 
 Now annotations to reveal gene expressions, this annotates gene expression to human genome  
 ```{r}
@@ -188,7 +229,7 @@ Just create ggplots
 ```{r}
 clean_data %>% 
   mutate(Significant = padj < 0.05 & abs(log2FoldChange) > 2) %>% 
-  ggplot(aes(x = log2FoldChange, y = -log10(padj), col=Significant)) + geom_point()
+  ggplot(aes(x = log2FoldChange, y = padj, col=Significant)) + geom_point()
 ```
 Create some volcano plots and see if you find some data
 ```{r}
@@ -198,7 +239,7 @@ top_genes <- dplyr::slice(clean_data, 1:N) %>% pull(row)
 
 clean_data %>%
   mutate(label = ifelse(row %in% top_genes, SYMBOL, "")) %>%
-  ggplot(aes(x = log2FoldChange, y = -log10(padj), label = label)) +
+  ggplot(aes(x = log2FoldChange, y = padj, label = label)) +
   geom_point(alpha = 0.4) +
   geom_text(col = "blue")
 
@@ -206,7 +247,7 @@ if(!require(ggrepel)) install.packages("ggrepel")
 
 clean_data %>% 
   mutate(Label = ifelse(row %in% top_genes, SYMBOL, "")) %>%  
-  ggplot(aes(x = log2FoldChange, y = -log10(padj), label=Label)) + geom_point(alpha=0.4) + geom_text_repel(col="blue")
+  ggplot(aes(x = log2FoldChange, y = padj, label=Label)) + geom_point(alpha=0.4) + geom_text_repel(col="blue")
   
   
 ```
@@ -228,7 +269,8 @@ print(sampleInfo)
 
 gene_labels <- dplyr::slice(results_DM, 1:N) %>% pull(SYMBOL)
 pheatmap(assay(vsd)[top_genes,],
-           labels_row = gene_labels,,
+           labels_row = gene_labels,
+         
          scale="row")
 ```
 
