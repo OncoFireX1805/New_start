@@ -38,6 +38,7 @@ library(readr)
  setwd("C:/Users/parth/OneDrive/Desktop/repet_1")
 # Read CSV file with the first column as row names
 DatasheetB <- read.csv("C:/Users/parth/OneDrive/Desktop/New_start/DatasheetB.csv", header = TRUE, row.names = 1, sep = ",")
+source("C:/Users/parth/OneDrive/Desktop/New_start/multi_QCR.R")
 
 # View the data
 ```
@@ -47,6 +48,10 @@ DatasheetB <- read.csv("C:/Users/parth/OneDrive/Desktop/New_start/DatasheetB.csv
 
 
 DatasheetB
+multiqc_data<-read.csv("C:/Users/parth/OneDrive/Desktop/New_start/multiqc_table_1.csv")
+multiqc_data
+View(multiqc_data)
+
 
 
 
@@ -62,24 +67,56 @@ if (!require("BiocManager", quietly = TRUE))
 ```{r}
 BiocManager::install("pasilla")
 ```
+```{r}
+# Load necessary libraries
+library(data.table)
+
+# Assuming DatasheetB is your matrix
+# Convert matrix to data frame and transpose it
+DatasheetB_df <- as.data.frame(t(DatasheetB))
+
+# Create condition vector
+condition <- factor(c("D", "D", "M", "M", "D"))
+
+# Create a sample information dataframe without the replicate column
+sampleInfo <- data.frame(
+  sample = rownames(DatasheetB_df),  # Sample names
+  condition = condition  # Condition column
+)
+
+# Write sample information dataframe to CSV
+write.csv(sampleInfo, "sample_info.csv", row.names = FALSE)
+View(sampleInfo)
+
+```
+
+
+
 Exclude text columns before you proceed save them seperately
 
-```{r}
-condition<-factor(c("D","D","M","M","D"))
-```
+
+
 Mention the conditon and equate column anems to row names 
 Sort the data in metastatic and dormant models
 
-```{r}
-coldata<-data.frame(row.names=colnames(DatasheetB),condition)
-```
+
+
 
 ```{r}
-coldata
+
+sampleInfo
+
+
 ```
 
+Now Parth merge this data with MultiQC for data analysis and incooperating it into your datasheet B for enahnced analsysis 
 ```{r}
-dds<-DESeqDataSetFromMatrix(countData = round(DatasheetB),colData = coldata,design = ~condition)
+sampleInfo<-merge(sampleInfo,multiqc_data,by="sample",all.x=TRUE)
+```
+Now happily select the tables and do the analysis (next step choose tables for the analysis)
+```{r}
+library(DESeq2)
+dds<-DESeqDataSetFromMatrix(countData = round(DatasheetB),colData = sampleInfo,design = ~condition)
 ```
 
 
@@ -113,7 +150,7 @@ library(tidyverse)
 library(DESeq2)
 dir.create("BCanalysis",showWarnings = FALSE)
 results(de_dormancy,tidy = TRUE)%>%
-  arrange(desc(padj>0.05))%>%
+  arrange(desc(padj<0.05))%>%
   write_csv("dormancy_analysis.csv")
 read_csv("dormancy_analysis.csv")
 saveRDS(de_dormancy,file = "de_dormancy.rds")
@@ -121,36 +158,7 @@ saveRDS(de_dormancy,file = "de_dormancy.rds")
 
 
 Finally plot the data for the first time
-```{r}
-# Load the DESeq2 library
-library(DESeq2)
 
-# Assuming de_dormancy is your DESeqDataSet object and you've already run DESeq
-# de_dormancy <- DESeq(de_dormancy)
-
-# Get the results
-res <- results(de_dormancy)
-
-# Filter for adjusted p-values less than 0.05, and ensure there are no NA values
-filtered_res <- res[!is.na(res$padj) & res$padj < 0.05, ]
-
-# Check if the filtered results are not empty
-if (nrow(filtered_res) > 0) {
-    # Plot the MA plot using the filtered results
-    plotMA(filtered_res, main="MA plot with adjusted p-value < 0.05")
-    
-    # Optional: Highlight significant points
-    plotMA(res, ylim=c(-2, 2))
-    with(subset(res, !is.na(padj) & padj < 0.05), points(baseMean, log2FoldChange, col="red", cex=1.5))
-} else {
-    cat("No genes passed the adjusted p-value threshold of 0.05\n")
-}
-
-
-
-
-
-```
 ```{r}
 plotMA(de_dormancy)
 ```
@@ -189,22 +197,26 @@ dim(dds)
 The dimmensions of anno and dds dont match due to the duplications in the dataset 
 Now to remove duplicated information 
 
-```{r}
-a<-duplicated(dds)
-sum(a)
-```
+
 Now to remove the duplicated entries 
 ```{r}
-anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("ENSEMBL","SYMBOL","GENENAME","ENTREZID"),keytype="ENSEMBL")%>%filter(!duplicated(ENSEMBL))
+anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("ENSEMBL","SYMBOL","GENENAME","ENSEMBL"),keytype="ENSEMBL")
 head(anno)
 ```
 Now joining the dataframes together with gene names and database. This joins the ENSEMBL datasheet with gene names and gene symbols 
 ```{r}
-results_annotated<-results(de_dormancy,tidy = TRUE)%>%left_join(anno,by=c("row"="ENSEMBL"))
+results_annotated<-results(de_dormancy, tidy = TRUE)%>%left_join(anno,by=c("row"="ENSEMBL"))
 head(results_annotated)
 write.csv(results_annotated,file = "de_dormancy-MvsD.csv",row.names = FALSE)
 saveRDS(results_annotated,file = "dormancy_MvsD.rds")
+
+
 ```
+
+```{r}
+ggplot\
+```
+
 Normalising the datasets
 ```{r}
 dds<-estimateSizeFactors(dds)
@@ -269,6 +281,7 @@ print(sampleInfo)
 
 gene_labels <- dplyr::slice(results_DM, 1:N) %>% pull(SYMBOL)
 pheatmap(assay(vsd)[top_genes,],
+       
            labels_row = gene_labels,
          
          scale="row")
@@ -398,7 +411,7 @@ library(org.Hs.eg.db)
 
 ego <- enrichGO(gene = signif_genes,
  universe = all_genes,
- keyType = "ENTREZID",
+ keyType = "ENSEMBL",
  OrgDb = org.Hs.eg.db,
  ont = "BP",
  pAdjustMethod = "BH",
