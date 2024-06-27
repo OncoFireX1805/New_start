@@ -214,7 +214,10 @@ saveRDS(results_annotated,file = "dormancy_MvsD.rds")
 ```
 
 ```{r}
-ggplot\
+library(ggplot2)
+results_annotated<-as.data.frame(results_annotated[1:10, ])
+
+ggplot(data = results_annotated)+geom_are(mapping =aes(x=SYMBOL,y=padj))
 ```
 
 Normalising the datasets
