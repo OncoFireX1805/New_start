@@ -1,0 +1,556 @@
+---
+title: "Code"
+author: "Parth"
+date: "2024-06-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "BC-no merge"
+author: "Parth"
+date: "2024-06-03"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+```
+
+
+```{r}
+
+library(DESeq2)
+```
+
+
+
+
+```{r}
+library(readr)
+library(readr)
+ setwd("C:/Users/parth/OneDrive/Desktop/repet_1")
+# Read CSV file with the first column as row names
+DatasheetB <- read.csv("C:/Users/parth/OneDrive/Desktop/New_start/DatasheetB.csv", header = TRUE, row.names = 1, sep = ",")
+
+
+# View the data
+```
+
+
+```{r}
+
+
+DatasheetB
+
+
+
+
+
+```
+
+```{r}
+# Load necessary libraries
+library(data.table)
+
+# Assuming DatasheetB is your matrix
+# Convert matrix to data frame and transpose it
+DatasheetB_df <- as.data.frame(t(DatasheetB))
+
+# Create condition vector
+condition <- factor(c("D", "D", "D", "M", "M"))
+
+# Create a sample information dataframe without the replicate column
+sampleInfo <- data.frame(
+  sample = rownames(DatasheetB_df),  # Sample names
+  condition = condition  # Condition column
+)
+
+# Write sample information dataframe to CSV
+write.csv(sampleInfo, "sample_info.csv", row.names = FALSE)
+View(sampleInfo)
+
+```
+
+
+
+Exclude text columns before you proceed save them seperately
+
+
+
+Mention the conditon and equate column anems to row names 
+Sort the data in metastatic and dormant models
+
+
+
+
+```{r}
+
+sampleInfo
+
+
+```
+
+Now Parth merge this data with MultiQC for data analysis and incooperating it into your datasheet B for enahnced analsysis 
+```{r}
+
+```
+Now happily select the tables and do the analysis (next step choose tables for the analysis)
+```{r}
+library(DESeq2)
+dds<-DESeqDataSetFromMatrix(countData = round(DatasheetB),colData = sampleInfo,design = ~condition)
+```
+
+
+```{r}
+dds<-DESeq(dds)
+```
+pull out individual values
+```{r}
+dds$condition
+dds$sizeFactor
+
+```
+
+```{r}
+colData(dds)
+design(dds)<-~condition
+```
+
+Now do the real analysis 
+```{r}
+de_dormancy<-DESeq(dds)
+```
+find the results 
+```{r}
+
+results(de_dormancy, contrast=c("condition","M","D"))
+```
+Tidy up the data now abd start using p value for getting significant difference and write a file about it to get everything sorted formats: excel or CSV (here csv)
+```{r}
+library(dplyr)
+library(tidyverse)
+library(DESeq2)
+dir.create("BCanalysis",showWarnings = FALSE)
+results(de_dormancy,tidy = TRUE)%>%
+  arrange(desc(pvalue<0.05))%>%
+  write_csv("dormancy_analysis.csv")
+read_csv("dormancy_analysis.csv")
+saveRDS(de_dormancy,file = "de_dormancy.rds")
+```
+
+
+Finally plot the data for the first time
+
+```{r}
+plotMA(de_dormancy)
+```
+
+
+
+
+Now annotations to reveal gene expressions, this annotates gene expression to human genome  
+
+
+
+Now checkout the columns 
+```{r}
+library(org.Hs.eg.db)
+columns(org.Hs.eg.db)
+
+
+
+```
+
+Analysing gene function and alloting them gene name and symbols
+```{r}
+AnnotationDbi::select(org.Hs.eg.db, keys="ENSG00000000003", keytype="ENSEMBL", columns=c("SYMBOL", "GENENAME"))
+```
+
+
+Now we annotate the whole bunch of data 
+```{r}
+anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("SYMBOL","GENENAME"),keytype = "ENSEMBL")
+View(anno)
+dim(anno)
+dim(dds)
+
+```
+
+The dimmensions of anno and dds dont match due to the duplications in the dataset 
+Now to remove duplicated information 
+
+
+Now to remove the duplicated entries 
+```{r}
+anno<-AnnotationDbi::select(org.Hs.eg.db,keys = rownames(dds),columns = c("ENSEMBL","SYMBOL","GENENAME","ENSEMBL"),keytype="ENSEMBL")
+head(anno)
+```
+Now joining the dataframes together with gene names and database. This joins the ENSEMBL datasheet with gene names and gene symbols 
+```{r}
+results_annotated<-results(de_dormancy, tidy = TRUE)%>%left_join(anno,by=c("row"="ENSEMBL"))
+head(results_annotated)
+write.csv(results_annotated,file = "de_dormancy-MvsD.csv",row.names = FALSE)
+saveRDS(results_annotated,file = "dormancy_MvsD.rds")
+
+
+
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = results_annotated)+geom_boxplot(mapping =aes(x=SYMBOL,y=padj))
+```
+
+Normalising the datasets
+```{r}
+dds<-estimateSizeFactors(dds)
+countMatrix <-counts(dds, normalized=TRUE)
+View(countMatrix)
+write.csv(countMatrix,file= "normalised counts.csv")
+
+```
+
+To the final stage of heat mapp analysis and data analysis 
+
+```{r}
+library(DESeq2)
+library(dplyr)
+library(readr)
+results_DM<-read.csv("C:/Users/parth/OneDrive/Desktop/New_start/de_dormancy-MvsD.csv")
+
+# Remove rows with any NA values
+
+
+```
+Just create ggplots 
+```{r}
+results_DM<-na.omit(results_DM)
+results_DM %>% 
+  mutate(Significant = pvalue < 0.05 & abs(log2FoldChange) > 2) %>% 
+  ggplot(aes(x = -log2FoldChange, y = pvalue, col=Significant)) + geom_point()
+
+```
+
+Create some volcano plots and see if you find some data
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+if(!require(ggrepel)) install.packages("ggrepel")
+library(ggrepel)
+
+# Number of top genes to highlight
+N <- 30
+
+
+# Assuming 'results_DM' is your data frame and it has columns 'row', 'log2FoldChange', 'pvalue', and 'SYMBOL'
+top_genes <- dplyr::slice(results_DM, 1:N) %>% pull(row)
+
+# First plot with geom_text
+results_DM %>%
+  mutate(label = ifelse(row %in% top_genes, SYMBOL, "")) %>%
+  ggplot(aes(x = log2FoldChange, y = pvalue, label = label)) +
+  geom_point(alpha = 0.4) +
+  geom_text(col = "ORANGE")
+
+# Second plot with geom_text_repel
+results_DM %>%
+  mutate(Label = ifelse(row %in% top_genes, SYMBOL, "")) %>%
+  ggplot(aes(x = log2FoldChange, y = pvalue, label = Label)) + 
+  geom_point(alpha = 0.4) + 
+  geom_text_repel(col = "ORANGE")
+View(results_DM)
+
+  
+```
+
+
+For some reason the annotation is not working and its giving me an error about incorrect dimensions 
+Annotation is working apparently ignore annotation column 
+```{r}
+library(pheatmap)
+
+# Assuming 'results_DM' is your data frame containing differential expression results
+results_DM$pvalue <- as.numeric(results_DM$pvalue)  # Convert pvalue to numeric if not already
+
+# Extract gene labels for the top N genes (replace N with your desired number)
+gene_labels <- dplyr::slice(results_DM, 1:N,) %>% pull(GENENAME)
+
+# Assuming 'vsd' is your normalized expression data (assuming you have it as an object)
+# 'top_genes' should be a vector of row indices for the top genes you want to plot
+# Adjust parameters as needed based on your actual data structure and preferences
+pheatmap(
+  assay(vsd)[top_genes, ],
+  labels_row = gene_labels,
+ 
+   
+  fontsize_row = 8,              # Adjust row label font size as needed
+  fontsize_col = 8,              # Adjust column label font size as needed
+  scale = "column",              # Scale columns (genes) by Z-score or other method
+)
+
+
+```
+
+
+
+
+Now do pathway analysis 
+```{r}
+library(org.Hs.eg.db)
+pathway_genes <- AnnotationDbi::select(org.Hs.eg.db,
+                                       keys = "GO:0030198",
+                                       keytype = "GO",
+                                       columns="ENSEMBL") %>% pull(ENSEMBL)
+
+
+```
+Apoptosis (GO:0006915)
+ECM: GO:0030198
+Cell Cycle (GO:0007049)
+DNA Repair (GO:0006281)
+Immune Response (GO:0006955)
+Inflammatory Response (GO:0006954)
+Signal Transduction (GO:0007165)
+Wnt Signaling Pathway (GO:0016055)
+MAPK Cascade (GO:0000165)
+Notch Signaling Pathway (GO:0007219)
+Toll-like Receptor Signaling Pathway (GO:0002224)
+Additionally, you can explore specific KEGG pathways:
+
+KEGG: hsa04010 (MAPK signaling pathway)
+KEGG: hsa04110 (Cell cycle)
+KEGG: hsa04210 (Apoptosis)
+KEGG: hsa04620 (Toll-like receptor signaling pathway)
+KEGG: hsa04310 (Wnt signaling pathway)
+
+```{r}
+library(dplyr)
+library(org.Hs.eg.db)
+go_table <- mutate(results_DM, 
+                   inPathway = row %in% pathway_genes,
+                   isDE = pvalue < 0.05 & abs(log2FoldChange) > 1)
+View(go_table)
+```
+
+```{r}
+table(go_table$inPathway, go_table$isDE)
+```
+Performing Chisquare test on the data 
+```{r}
+chisq.test(table(go_table$inPathway, go_table$isDE))
+```
+The test resulted in very small negative p value hence the alternative hypothesis stating there is high change in gene expression in dormant and metastatic cells is seen 
+
+Clusterprofiler analysis 
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("clusterProfiler")
+
+
+
+```
+
+
+```{r}
+print(head(results_DM$row
+           ))
+```
+
+
+```{r}
+library(clusterProfiler)
+universe <- results_DM %>% pull(row)
+sigGenes <- results_DM %>% 
+  filter(pvalue < 0.05, !is.na(row)) %>% pull(row)
+
+fotty <- enrichGO(
+  gene= sigGenes,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENSEMBL",
+  ont = "BP",
+  universe = universe,
+  qvalueCutoff = 0.05,
+  readable=TRUE
+)
+
+```
+
+```{r}
+fotty%>%as.data.frame()
+View(fotty)
+```
+
+
+```{r}
+head(anno)
+```
+
+```{r}
+library(DESeq2)
+library(pheatmap)
+library(org.Hs.eg.db)
+library(DOSE)
+
+library(clusterProfiler)
+install.packages("ensembl")
+
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+all(colnames(DatasheetB)%in%rownames(coldata))
+all(colnames(DatasheetB)==rownames(coldata))
+
+```
+
+```{r}
+
+rold<-rlog(dds,blind = TRUE)
+plotPCA(rold, intgroup="condition")
+
+
+
+
+```
+
+
+```{r}
+results_DM<-read.csv("C:/Users/parth/OneDrive/Desktop/New_start/de_dormancy-MvsD.csv")
+orignal_gene_list<-go_table$log2FoldChange
+names(orignal_gene_list)<-go_table$row
+gene_list<-na.omit(orignal_gene_list)
+gene_list = sort(gene_list, decreasing = TRUE)
+
+
+
+```
+
+```{r}
+gse <- gseGO(geneList = gene_list, 
+             ont = "ALL", 
+             keyType = "ENSEMBL", 
+             nPerm = 10000, 
+             minGSSize = 3, 
+             maxGSSize = 800, 
+             pvalueCutoff = 0.05, 
+             verbose = TRUE, 
+             OrgDb = org.Hs.eg.db, 
+             pAdjustMethod = "none")
+
+
+
+```
+Dot plot data 
+
+
+```{r}
+library(ggplot2)
+dotplot(gse, showCategory=10, split=".sign") + facet_grid(.~.sign)+
+  theme(axis.text.x = element_text(size = 10),  # Adjust x-axis text size
+        axis.text.y = element_text(size = 10),  # Adjust y-axis text size
+        legend.text = element_text(size = 10))  # Adjust legend text siz
+
+```
+
+```{r}
+enrichplot::upsetplot(gse)
+```
+
+
+
+
+Enrichment map
+
+
+```{r}
+cnetplot(gse, categorySize="pvalue", GENENAME=SYMBOL, showCategory = 3)
+```
+
+Drawing a ridgeplot 
+```{r}
+ridgeplot(gse) +
+  labs(x = "Enrichment Distribution") +
+  theme(axis.text.x = element_text(size = 10),  # Adjust x-axis text size
+        axis.text.y = element_text(size = 10),  # Adjust y-axis text size
+        legend.text = element_text(size = 10))  # Adjust legend text size
+
+
+```
+
+```{r}
+enrichplot::upsetplot(gse)
+```
+
+```{r}
+gseaplot(gse,geneSetID = "GO:0030198")
+```
+
+GESA plotting finally 
+
+```{r}
+gseaplot(gse, by = "all", title = gse$Description[i], geneSetID = i)
+```
+
+
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+BiocManager::install("GeneTonic")
+library(GeneTonic)
+
+design(dds) <- ~condition
+de <- DESeq(dds)
+##Don't use the tidy=TRUE option so the output stays as a DESeq object
+res_de <- results(de,contrast = c("condition", "M","D"))
+```
+
+```{r}
+res_enrich <- shake_enrichResult(fotty)
+```
+
+
+
+
+```{r}
+anno_df <- AnnotationDbi::select(org.Hs.eg.db,keys=rownames(dds),columns="SYMBOL",keytype = "ENSEMBL")  %>% 
+  dplyr::rename(gene_id = ENSEMBL,gene_name=SYMBOL)
+
+```
+
+```{r}
+GeneTonic(dds,
+  res_de,
+  res_enrich,
+  anno_df
+  )
+
+```
+
+
+
